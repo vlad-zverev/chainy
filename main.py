@@ -1,31 +1,18 @@
-import json
+from src.chain import Blockchain
+from src.http.server import start, app
+from src.miner import Miner
+from src.utils import get_env_var
 
-from flask import Flask
-from src.wallet import Wallet
-from src.miner import Blockchain, Miner
-import logging
-from src.utils import serialize
+miner = Miner(Blockchain())
 
+PORT = get_env_var('PORT', default=5000)
+MODULE = get_env_var('MODULE', default='wallet')
+DEBUG = bool(get_env_var('DEBUG', 1))
 
-logging.basicConfig(level=logging.INFO)
+modules = {
+	'miner': (miner.main, {}),
+	'wallet': (start, {'debug': DEBUG, 'port': PORT, 'node': miner, 'server': app}),
+}
 
-app = Flask(__name__)
-
-blockchain = Blockchain()
-miner = Miner(blockchain)
-wallet = Wallet()
-transaction = wallet.create_transaction(amount='123', fee='1', receiver='0x')
-miner.add_new_transaction(transaction)
-miner.mine()
-
-
-@app.route('/chain', methods=['GET'])
-def get_chain():
-    chain_data = []
-    for block in blockchain.chain:
-        chain_data.append(block.__dict__)
-    return json.dumps({"length": len(chain_data),
-                       "chain": chain_data}, default=serialize)
-
-
-app.run(debug=True, port=5000)
+app, args = modules[MODULE]
+app(**args)
