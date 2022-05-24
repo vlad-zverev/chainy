@@ -20,12 +20,12 @@ class AttrsAsHash:
 
 
 class RawTransaction(AttrsAsHash):
-	def __init__(self, amount: Decimal, fee: Decimal, sender: str, recipient: str):
+	def __init__(self, amount: str, fee: str, sender: str, recipient: str, timestamp: int = None):
 		self.amount = amount
 		self.sender = sender
 		self.recipient = recipient
 		self.fee = fee
-		self.timestamp = actual_time()
+		self.timestamp = timestamp if timestamp else actual_time()
 
 
 class Transaction:
@@ -87,6 +87,11 @@ class Blockchain:
 		if self.db:
 			self.db.save_block_with_transactions(block)
 
+	@property
+	def blocks(self):
+		self.update_local_chain()
+		return self.chain
+
 	def update_local_chain(self):
 		chain = []
 		db_blocks = self.db.get_all(BlockModel)
@@ -123,8 +128,8 @@ class Blockchain:
 
 	def _create_initial_transaction(self) -> Transaction:
 		raw_transaction = RawTransaction(
-			amount=self.total_emission,
-			fee=Decimal(0),
+			amount=str(self.total_emission),
+			fee='0',
 			sender='0',
 			recipient='root',
 		)
@@ -136,8 +141,8 @@ class Blockchain:
 
 	def pay_fee(self, recipient: str):
 		raw_transaction = RawTransaction(
-			amount=self.block_reward,
-			fee=Decimal(0),
+			amount=str(self.block_reward),
+			fee='0',
 			sender='root',
 			recipient=recipient,
 		)

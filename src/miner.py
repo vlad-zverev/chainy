@@ -6,14 +6,16 @@ import sys
 import traceback
 from time import sleep
 from typing import List
+from decimal import Decimal
 
 import base58
 import ecdsa
 from ecdsa.keys import BadSignatureError, MalformedPointError
 
-from src.chain import Blockchain, Block, Transaction
+from src.chain import Blockchain, Block, Transaction, RawTransaction
 from src.http.client import HttpJsonClient
-from src.db.connector import DatabaseConnector
+from src.db.connector import DatabaseConnector, Engine
+from src.db.models import UserRequest, TransactionModel
 from src.utils import actual_time
 from src.wallet import Wallet
 
@@ -23,11 +25,12 @@ NODES = os.getenv('NODES')
 
 
 class Miner:
-    def __init__(self, blockchain: Blockchain, greedy_mode: bool = True):
+    def __init__(self, blockchain: Blockchain, engine: Engine, greedy_mode: bool = True):
         self.address = os.getenv('ADDRESS') if os.getenv('ADDRESS') else Wallet().address
 
         self.blockchain = blockchain
-        self.blockchain.db = DatabaseConnector(f'{self.address}')
+        self.blockchain.db = DatabaseConnector(engine)
+        self.blockchain.update_local_chain()
         if not len(self.blockchain):
             self.blockchain.create_initial_block()
 
@@ -74,11 +77,32 @@ class Miner:
         return self.validate_signature(transaction.public_key, transaction.signature, transaction.raw.hash) \
                and self.validate_balance(transaction)
 
-    def add_new_transaction(self, transaction: Transaction) -> None:
-        if self.validate(transaction):
-            self.blockchain.unconfirmed_transactions.append(transaction)
-        else:
-            logging.info('Your transaction incorrect')
+    def add_new_transaction(self) -> None:
+        required = ('signature', 'public_key', 'sender', 'recipient', 'amount', 'fee')
+        for data in self.blockchain.db.query(UserRequest).filter(~UserRequest.checked):
+            tx = json.loads(data.request)
+            try:
+                if not all(key in tx.keys() for key in required):
+                    raise ValueError
+                transaction = Transaction(
+                    signature=tx['signature'],
+                    public_key=tx['public_key'],
+                    raw=RawTransaction(
+                        amount=tx['amount'],
+                        fee=tx['fee'],
+                        sender=tx['sender'],
+                        recipient=tx['recipient'],
+                        timestamp=tx['timestamp'],
+                    )
+                )
+                if self.validate(transaction):
+                    self.blockchain.unconfirmed_transactions.append(transaction)
+                else:
+                    logging.info('Your transaction incorrect')
+            except (AttributeError, ValueError):
+                logging.error(traceback.format_exc())
+            finally:
+                self.blockchain.db.query(UserRequest).filter(UserRequest.id == data.id).update({UserRequest.checked: 1})
 
     @staticmethod
     def validate_signature(public_key: str, signature: str, message: str) -> bool:
@@ -91,7 +115,7 @@ class Miner:
             return False
 
     def validate_balance(self, transaction: Transaction) -> bool:
-        required_amount = transaction.raw.amount + transaction.raw.fee
+        required_amount = Decimal(transaction.raw.amount) + Decimal(transaction.raw.fee)
         wallet = Wallet(address=transaction.raw.sender)
         if wallet.is_balance_sufficient(self.blockchain, required_amount):
             return True
@@ -115,7 +139,7 @@ class Miner:
 
     def mine_cycle(self):
         while True:
-            self.blockchain.update_local_chain()
+            self.add_new_transaction()
             self.mine()
             self.sync_nodes()
             sleep(1)

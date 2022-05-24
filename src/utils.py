@@ -2,6 +2,8 @@ import time
 from decimal import Decimal
 from typing import Any
 import os
+import json
+from typing import Hashable
 
 
 def actual_time():
@@ -24,3 +26,7 @@ def serialize(obj: Any):
 
 def get_env_var(env: str, default: Any):
     return os.getenv(env) if os.getenv(env) else default
+
+
+def response(obj: Hashable):
+    return json.dumps(obj, default=serialize)

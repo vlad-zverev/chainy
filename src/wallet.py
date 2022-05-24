@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import base58
 import ecdsa
+import logging
 
 from src.chain import Blockchain, RawTransaction, Transaction
 
@@ -33,17 +34,23 @@ class Crypto:
 
 class Wallet:
     def __init__(
-            self, is_new: bool = True,
+            self,
             address: str = None,
             private_key: str = None,
             public_key: str = None,
     ):
-        if is_new:
+        if not address:
             self._generate()
         else:
             self.address = address
             self.private_key = private_key
             self.public_key = public_key
+        self.log()
+
+    def log(self):
+        logging.info(f'Address: {self.address}')
+        logging.info(f'Private: {self.private_key}')
+        logging.info(f'Public: {self.public_key}')
 
     def _generate(self):
         crypto = Crypto()
@@ -52,7 +59,7 @@ class Wallet:
         self.public_key = crypto.public
 
     def is_balance_sufficient(self, blockchain: Blockchain, required_amount: Decimal = 0):
-        if self.get_balance(blockchain) >= required_amount:
+        if self.get_balance(blockchain) >= Decimal(required_amount):
             return True
 
     def get_balance(self, blockchain: Blockchain):
@@ -60,9 +67,9 @@ class Wallet:
         for block in blockchain.chain:
             for transaction in block.transactions:
                 if transaction.raw.recipient == self.address:
-                    balance += transaction.raw.amount
+                    balance += Decimal(transaction.raw.amount)
                 if transaction.raw.sender == self.address:
-                    balance -= transaction.raw.amount - transaction.raw.fee
+                    balance -= Decimal(transaction.raw.amount) - Decimal(transaction.raw.fee)
         return balance
 
     def sign_transaction(self, message: str):
@@ -70,12 +77,12 @@ class Wallet:
         signing_key = ecdsa.SigningKey.from_string(bytes.fromhex(self.private_key), curve=ecdsa.SECP256k1)
         return base58.b58encode(signing_key.sign(bytes_message)).decode()
 
-    def create_transaction(self, amount: str, fee: str, receiver: str):
+    def create_transaction(self, amount: str, fee: str, recipient: str):
         raw_transaction = RawTransaction(
-            amount=Decimal(amount),
-            fee=Decimal(fee),
+            amount=amount,
+            fee=fee,
             sender=self.address,
-            recipient=receiver,
+            recipient=recipient,
         )
         return Transaction(
             self.sign_transaction(raw_transaction.hash),

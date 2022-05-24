@@ -1,8 +1,9 @@
-from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from src.db.models import *
 from typing import List
+from sqlalchemy.engine import Engine
+import json
 
 
 def save(func):
@@ -22,8 +23,8 @@ def save(func):
 
 class DatabaseConnector:
 
-	def __init__(self, db: str, drop_and_create: bool = True):
-		self.engine = create_engine(f'sqlite:///{db}.sqlite')
+	def __init__(self, engine: Engine, drop_and_create: bool = True):
+		self.engine = engine
 		self.engine.connect()
 		self.session = Session(bind=self.engine, autoflush=False)
 		self.metadata = Base.metadata
@@ -64,6 +65,10 @@ class DatabaseConnector:
 
 	def add_transaction(self, **kwargs) -> TransactionModel:
 		return self.add(TransactionModel(**kwargs))
+
+	@save
+	def save_user_request(self, request):
+		return self.add(UserRequest(request=json.dumps(request)))
 
 	@save
 	def save_block_with_transactions(self, block):

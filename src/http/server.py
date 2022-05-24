@@ -5,24 +5,25 @@ from flask import Flask, request
 from src.chain import Blockchain
 from src.miner import Miner
 from src.wallet import Wallet
-from src.utils import serialize
+from src.utils import serialize, response
+from src.db.models import UserRequest
+import json
+
 
 app = Flask(__name__)
 miner: Miner = None
 
 
 @app.route('/chain', methods=['GET'])
-def get_chain():
-    miner.blockchain.update_local_chain()
-    blocks = [block.info for block in miner.blockchain.chain]
-    return json.dumps({'length': len(blocks), 'blocks': blocks}, default=serialize)
+def chain():
+    blocks = [block.info for block in miner.blockchain.blocks]
+    return response({'len': len(blocks), 'blocks': blocks})
 
 
-@app.route('/chain', methods=['GET'])
+@app.route('/send', methods=['POST'])
 def send():
-    data = request.get_json()
-
-    return json.dumps({}, default=serialize)
+    miner.blockchain.db.save_user_request(request.get_json())
+    return response({})
 
 
 def start(server: Flask, node: Miner, debug: bool, port: int):
