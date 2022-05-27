@@ -10,37 +10,37 @@ from sqlalchemy import create_engine
 import os
 
 
-engine = create_engine(f'sqlite:///{os.getenv("ADDRESS")}.sqlite', connect_args={'check_same_thread': False})
 Base = declarative_base()
 
 
 class BlockModel(Base):
 	__tablename__ = 'blocks'
 
-	index = Column(Integer, nullable=False, unique=True, primary_key=True)
+	index = Column(Integer, nullable=False, primary_key=True)
 	timestamp = Column(Integer, nullable=False)
 	hash = Column(String(64), nullable=False, unique=True, index=True)
 	previous_hash = Column(String(64), nullable=False, unique=True)
 	nonce = Column(Integer, nullable=False)
 
-	transactions = relationship('TransactionModel', backref='BlockModel')
+	transactions = relationship('TransactionModel', back_populates='block')
 
 
 class TransactionModel(Base):
 	__tablename__ = 'transactions'
 
-	amount = Column(Numeric, nullable=False)
-	fee = Column(Numeric, nullable=False)
+	amount = Column(String, nullable=False)
+	fee = Column(String, nullable=False)
 	sender = Column(String(64))
 	recipient = Column(String(64))
 	timestamp = Column(Integer, nullable=False)
 
+	id = Column(Integer, primary_key=True)
 	signature = Column(String(64))
 	public_key = Column(String(64))
-	hash = Column(String(64), unique=True, index=True, primary_key=True)
+	hash = Column(String(64), index=True)
 	block_index = Column(Integer)
 
-	block = relationship('BlockModel')
+	block = relationship('BlockModel', back_populates='transactions')
 
 	__table_args__ = (
 		ForeignKeyConstraint(('block_index',), ('blocks.index',)),

@@ -3,6 +3,7 @@ import json
 from copy import deepcopy
 from decimal import Decimal
 from typing import List
+import logging
 
 from src.db.connector import DatabaseConnector
 from src.db.models import BlockModel, TransactionModel
@@ -19,13 +20,21 @@ class AttrsAsHash:
 		).hexdigest()
 
 
-class RawTransaction(AttrsAsHash):
+class RawTransaction:
 	def __init__(self, amount: str, fee: str, sender: str, recipient: str, timestamp: int = None):
 		self.amount = amount
 		self.sender = sender
 		self.recipient = recipient
 		self.fee = fee
 		self.timestamp = timestamp if timestamp else actual_time()
+
+	@property
+	def hash(self) -> str:
+		return hashlib.sha256(
+			json.dumps(
+				self.__dict__, sort_keys=True, default=serialize
+			).encode()
+		).hexdigest()
 
 
 class Transaction:
@@ -40,8 +49,24 @@ class Transaction:
 		del header['raw']
 		return header
 
+	@property
+	def hash(self) -> str:
+		return hashlib.sha256(
+			json.dumps(
+				{
+					'signature': self.signature,
+					'public_key': self.public_key,
+					'amount': self.raw.amount,
+					'fee': self.raw.fee,
+					'sender': self.raw.sender,
+					'recipient': self.raw.recipient,
+					'timestamp': self.raw.timestamp,
+				}, sort_keys=True, default=serialize
+			).encode()
+		).hexdigest()
 
-class Block(AttrsAsHash):
+
+class Block:
 	MAX_SIZE = 100
 
 	def __init__(
@@ -51,8 +76,9 @@ class Block(AttrsAsHash):
 			previous_hash: str,
 			nonce: int = 0,
 	):
-		self.index = index
 		self.transactions = transactions
+
+		self.index = index
 		self.timestamp = timestamp
 		self.previous_hash = previous_hash
 		self.nonce = nonce
@@ -62,6 +88,19 @@ class Block(AttrsAsHash):
 		return {**self.__dict__, **{'hash': self.hash}}
 
 	@property
+	def hash(self) -> str:
+		return hashlib.sha256(
+			json.dumps(
+				{
+					'index': self.index,
+					'timestamp': self.timestamp,
+					'previous_hash': self.previous_hash,
+					'nonce': self.nonce,
+				}, sort_keys=True, default=serialize
+			).encode()
+		).hexdigest()
+
+	@property
 	def header(self):
 		header = self.info
 		del header['transactions']
@@ -69,7 +108,7 @@ class Block(AttrsAsHash):
 
 
 class Blockchain:
-	difficulty = 4
+	difficulty = 5
 	threshold_block_time = 10_000_000  # 10 sec
 	total_emission = Decimal(1_000_000)
 	block_reward = Decimal(1)
@@ -107,6 +146,7 @@ class Blockchain:
 							fee=tx.fee,
 							sender=tx.sender,
 							recipient=tx.recipient,
+							timestamp=tx.timestamp,
 						)
 					) for tx in db_block.transactions
 				],
@@ -159,3 +199,9 @@ class Blockchain:
 	def edit_difficulty(self) -> None:
 		is_long_calculation = (actual_time() - self.last_block.timestamp) < self.threshold_block_time
 		self.difficulty += (-1, 1)[int(is_long_calculation)]
+
+	@staticmethod
+	def get_hash(block: dict) -> str:
+		return hashlib.sha256(
+			json.dumps(block).encode()
+		).hexdigest()

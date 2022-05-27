@@ -8,10 +8,14 @@ from src.wallet import Wallet
 from src.utils import serialize, response
 from src.db.models import UserRequest
 import json
-
+from src.http.client import HttpJsonClient
+import os
 
 app = Flask(__name__)
 miner: Miner = None
+
+
+NODES = json.loads(os.getenv('NODES')) if os.getenv('NODES') else []
 
 
 @app.route('/chain', methods=['GET'])
@@ -22,6 +26,15 @@ def chain():
 
 @app.route('/send', methods=['POST'])
 def send():
+    body = request.get_json()
+    miner.blockchain.db.save_user_request(body)
+    for node in NODES:
+        HttpJsonClient(node).post('notify', json=body)
+    return response({})
+
+
+@app.route('/notify', methods=['POST'])
+def notify():
     miner.blockchain.db.save_user_request(request.get_json())
     return response({})
 

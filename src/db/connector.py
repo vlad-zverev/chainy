@@ -1,9 +1,11 @@
+import traceback
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from src.db.models import *
 from typing import List
-from sqlalchemy.engine import Engine
 import json
+import logging
 
 
 def save(func):
@@ -23,8 +25,12 @@ def save(func):
 
 class DatabaseConnector:
 
-	def __init__(self, engine: Engine, drop_and_create: bool = True):
-		self.engine = engine
+	def __init__(self, drop_and_create: bool = False):
+		self.engine = create_engine(
+			url=f'sqlite:///{os.getenv("ADDRESS")}.sqlite',
+			connect_args={'check_same_thread': False},
+			echo=False
+		)
 		self.engine.connect()
 		self.session = Session(bind=self.engine, autoflush=False)
 		self.metadata = Base.metadata
@@ -51,6 +57,7 @@ class DatabaseConnector:
 			try:
 				self.session.flush()
 			except IntegrityError:
+				logging.error(traceback.format_exc())
 				self.session.rollback()
 		return entity
 
@@ -78,5 +85,5 @@ class DatabaseConnector:
 				**transaction.header,
 				**transaction.raw.__dict__,
 				'block_index': block.index,
-				'hash': transaction.raw.hash,
+				'hash': transaction.hash,
 			})

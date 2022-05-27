@@ -59,8 +59,11 @@ class Wallet:
         self.public_key = crypto.public
 
     def is_balance_sufficient(self, blockchain: Blockchain, required_amount: Decimal = 0):
-        if self.get_balance(blockchain) >= Decimal(required_amount):
+        balance = self.get_balance(blockchain)
+        if balance >= Decimal(required_amount):
             return True
+        else:
+            logging.warning(f'Insufficient balance {balance}, required {required_amount}')
 
     def get_balance(self, blockchain: Blockchain):
         balance = 0
