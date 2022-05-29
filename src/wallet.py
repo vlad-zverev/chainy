@@ -1,11 +1,11 @@
 import binascii
 import hashlib
+import logging
 from copy import copy
 from decimal import Decimal
 
 import base58
 import ecdsa
-import logging
 
 from src.chain import Blockchain, RawTransaction, Transaction
 

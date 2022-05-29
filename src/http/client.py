@@ -1,8 +1,9 @@
+import logging
 import os
+from typing import Literal
 
 import requests
-from typing import Literal
-import logging
+
 from src.wallet import Wallet
 
 

@@ -1,0 +1,33 @@
+version: "2.4"
+
+
+services:
+  miner_main:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=80
+      - NODES=["http://miner_friendly:81", "http://miner_hacker:82"]
+    ports:
+      - "80:80"
+
+  miner_friendly:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=81
+      - NODES=["http://miner_main:80", "http://miner_hacker:82"]
+    ports:
+      - "81:81"
+
+  miner_hacker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=82
+      - NODES=["http://miner_main:80", "http://miner_friendly:81"]
+    ports:
+      - "82:82"

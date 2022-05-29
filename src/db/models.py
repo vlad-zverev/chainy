@@ -1,14 +1,9 @@
-import os
-
 from sqlalchemy import (
 	Column, Integer, String,
-	Numeric, ForeignKeyConstraint, Table, MetaData, Boolean
+	ForeignKeyConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy import create_engine
-import os
-
 
 Base = declarative_base()
 

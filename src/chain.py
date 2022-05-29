@@ -3,10 +3,9 @@ import json
 from copy import deepcopy
 from decimal import Decimal
 from typing import List
-import logging
 
 from src.db.connector import DatabaseConnector
-from src.db.models import BlockModel, TransactionModel
+from src.db.models import BlockModel
 from src.utils import actual_time, serialize
 
 
@@ -116,7 +115,7 @@ class Blockchain:
 	def __init__(self):
 		self.unconfirmed_transactions: List[Transaction] = []
 		self.chain: List[Block] = []
-		self.db: DatabaseConnector = None
+		self.db: DatabaseConnector or None = None
 
 	def __len__(self):
 		return len(self.chain)

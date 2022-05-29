@@ -1,28 +1,24 @@
-import hashlib
 import json
 import logging
 import os
 import sys
 import traceback
-from time import sleep
-from typing import List
-from decimal import Decimal
 from copy import deepcopy
+from decimal import Decimal
+from typing import List
 
 import base58
 import ecdsa
 from ecdsa.keys import BadSignatureError, MalformedPointError
 
 from src.chain import Blockchain, Block, Transaction, RawTransaction
-from src.http.client import HttpJsonClient
 from src.db.connector import DatabaseConnector
 from src.db.models import UserRequest, TransactionModel, BlockModel
+from src.http.client import HttpJsonClient
 from src.utils import actual_time
 from src.wallet import Wallet
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=f"%(asctime)s - [%(levelname)s] - %(message)s")
-
-NODES = json.loads(os.getenv('NODES')) if os.getenv('NODES') else []
 
 
 class Validator:
@@ -70,7 +66,7 @@ class Miner(Validator):
         if not len(self.blockchain):
             self.blockchain.create_initial_block()
 
-        self.nodes: List[str] = NODES if NODES else []
+        self.nodes: List[str] = json.loads(os.getenv('NODES')) if os.getenv('NODES') else []
 
     def mine(self) -> Block or None:
         last_block = self.blockchain.last_block
@@ -168,6 +164,7 @@ class Miner(Validator):
         while True:
             self.add_new_transaction()
             self.mine()
+            self.sync_nodes()
 
     def main(self):
         self.mine_cycle()
