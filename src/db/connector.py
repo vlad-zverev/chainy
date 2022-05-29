@@ -28,11 +28,11 @@ def save(func):
 
 class DatabaseConnector:
 
-	def __init__(self, drop_and_create: bool = False):
+	def __init__(self, drop_and_create: bool = False, debug: bool = False):
 		self.engine = create_engine(
 			url=f'sqlite:///{os.getenv("ADDRESS")}.sqlite',
 			connect_args={'check_same_thread': False},
-			echo=False
+			echo=debug
 		)
 		self.engine.connect()
 		self.session = Session(bind=self.engine, autoflush=False)

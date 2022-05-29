@@ -56,12 +56,12 @@ class Validator:
 
 
 class Miner(Validator):
-    def __init__(self, blockchain: Blockchain):
+    def __init__(self, blockchain: Blockchain, debug: bool = False):
         super().__init__(blockchain)
         self.address = os.getenv('ADDRESS') if os.getenv('ADDRESS') else Wallet().address
 
         self.blockchain = blockchain
-        self.blockchain.db = DatabaseConnector(drop_and_create=True)
+        self.blockchain.db = DatabaseConnector(drop_and_create=True, debug=debug)
         self.blockchain.update_local_chain()
         if not len(self.blockchain):
             self.blockchain.create_initial_block()
@@ -103,7 +103,7 @@ class Miner(Validator):
         return self.validate_signature(transaction.public_key, transaction.signature, transaction.raw.hash) \
                and self.validate_balance(transaction)
 
-    def add_new_transaction(self) -> None:
+    def add_new_transactions(self) -> None:
         required = ('signature', 'public_key', 'sender', 'recipient', 'amount', 'fee')
         for data in self.blockchain.db.query(UserRequest).filter(~UserRequest.checked):
             tx = json.loads(data.request)
@@ -162,9 +162,14 @@ class Miner(Validator):
 
     def mine_cycle(self):
         while True:
-            self.add_new_transaction()
+            self.add_new_transactions()
             self.mine()
             self.sync_nodes()
 
     def main(self):
-        self.mine_cycle()
+        logging.info('Start mining...')
+        try:
+            self.mine_cycle()
+        except BaseException as e:
+            logging.error(f'Mining error: {e}, {traceback.format_exc()}')
+            self.main()

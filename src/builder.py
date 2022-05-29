@@ -10,10 +10,10 @@ from src.miner import Miner
 
 
 class AppBuilder:
-	def __init__(self, nodes: List[str] = None):
+	def __init__(self, nodes: List[str] = None, debug: bool = False):
 		self.flask = Flask(self.__module__)
 		self._lock = threading.Lock()
-		self.miner = Miner(Blockchain())
+		self.miner = Miner(Blockchain(), debug=debug)
 		self.nodes = nodes
 		atexit.register(self.exit)
 
@@ -24,8 +24,7 @@ class AppBuilder:
 		logging.info('Interrupted...')
 
 	def mine(self):
-		with self._lock:
-			self.miner.main()
+		self.miner.main()
 
 	def start_mining(self):
 		thread = threading.Thread(daemon=True, target=self.mine)
