@@ -5,7 +5,8 @@ import sys
 import traceback
 from copy import deepcopy
 from decimal import Decimal
-from typing import List
+from typing import List, Tuple
+import time
 
 import base58
 import ecdsa
@@ -54,6 +55,19 @@ class Validator:
     def is_valid_proof(self, proof: str) -> bool:
         return proof.startswith('0' * self.blockchain.difficulty)
 
+    @staticmethod
+    def validate_lock_script(code: str):
+        for string in 'import', 'subprocess':
+            if string in code:
+                return False, f'"{string}" is not allowed'
+        if code:
+            locked = None
+            exec(code, dict(), {'time': time.time})
+            if locked is None or not isinstance(locked, bool):
+                return False, 'lock_script must have assignment "locked = ...", where locked contain "bool" variable'
+            return locked, 0
+        return True, 0
+
 
 class Miner(Validator):
     def __init__(self, blockchain: Blockchain, debug: bool = False):
@@ -99,13 +113,18 @@ class Miner(Validator):
             raise
         self.blockchain + block
 
-    def validate(self, transaction: Transaction) -> bool:
-        return self.validate_signature(transaction.public_key, transaction.signature, transaction.raw.hash) \
-               and self.validate_balance(transaction)
+    def validate(self, transaction: Transaction) -> Tuple[bool, str]:
+        if not self.validate_signature(transaction.public_key, transaction.signature, transaction.raw.hash):
+            return False, 'Incorrect signature'
+        if not self.validate_balance(transaction):
+            return False, 'Insufficient balance'
+        lock_script_validated, message = self.validate_lock_script(transaction.raw.lock_script)
+        if not lock_script_validated:
+            return False, message
 
     def add_new_transactions(self) -> None:
         required = ('signature', 'public_key', 'sender', 'recipient', 'amount', 'fee')
-        for data in self.blockchain.db.query(UserRequest).filter(~UserRequest.checked):
+        for data in self.blockchain.db.get_unseen_requests():
             tx = json.loads(data.request)
             try:
                 if not all(key in tx.keys() for key in required):
@@ -128,7 +147,7 @@ class Miner(Validator):
             except (AttributeError, ValueError):
                 logging.error(traceback.format_exc())
             finally:
-                self.blockchain.db.query(UserRequest).filter(UserRequest.id == data.id).update({UserRequest.checked: 1})
+                self.blockchain.db.mark_requests_as_viewed(data)
 
     def sync_nodes(self):
         logging.info('Nodes synchronization...')
@@ -137,25 +156,7 @@ class Miner(Validator):
             if chain:
                 logging.info(f'{node} chain: {chain["len"]} blocks (our chain: {len(self.blockchain)})')
                 if chain['len'] > len(self.blockchain) and self.validate_node(chain['blocks']):
-                    self.blockchain.db.query(BlockModel).delete()
-                    self.blockchain.db.query(TransactionModel).delete()
-                    for block in chain['blocks']:
-                        db_block = deepcopy(block)
-                        del db_block['transactions']
-                        self.blockchain.db.add_block(**db_block)
-                        for transaction in block['transactions']:
-                            self.blockchain.db.add_transaction(**{
-                                'signature': transaction['signature'],
-                                'public_key': transaction['public_key'],
-                                'sender': transaction['raw']['sender'],
-                                'recipient': transaction['raw']['recipient'],
-                                'amount': transaction['raw']['amount'],
-                                'fee': transaction['raw']['fee'],
-                                'timestamp': transaction['raw']['timestamp'],
-                                'hash': '0',
-                                'block_index': block['index'],
-                            })
-                    self.blockchain.db.session.commit()
+                    self.blockchain.db.replace_chain(chain)
                     self.blockchain.update_local_chain()
                     logging.info('Chain replaced by another longer and valid chain')
                     return True

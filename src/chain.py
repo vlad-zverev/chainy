@@ -1,11 +1,11 @@
 import hashlib
 import json
+import threading
 from copy import deepcopy
 from decimal import Decimal
 from typing import List
 
 from src.db.connector import DatabaseConnector
-from src.db.models import BlockModel
 from src.utils import actual_time, serialize
 
 
@@ -20,12 +20,13 @@ class AttrsAsHash:
 
 
 class RawTransaction:
-	def __init__(self, amount: str, fee: str, sender: str, recipient: str, timestamp: int = None):
+	def __init__(self, amount: str, fee: str, sender: str, recipient: str, timestamp: int = None, lock_script: str = None):
 		self.amount = amount
 		self.sender = sender
 		self.recipient = recipient
 		self.fee = fee
 		self.timestamp = timestamp if timestamp else actual_time()
+		self.lock_script = lock_script
 
 	@property
 	def hash(self) -> str:
@@ -60,6 +61,7 @@ class Transaction:
 					'sender': self.raw.sender,
 					'recipient': self.raw.recipient,
 					'timestamp': self.raw.timestamp,
+					'lock_script': self.raw.lock_script,
 				}, sort_keys=True, default=serialize
 			).encode()
 		).hexdigest()
@@ -115,7 +117,7 @@ class Blockchain:
 	def __init__(self):
 		self.unconfirmed_transactions: List[Transaction] = []
 		self.chain: List[Block] = []
-		self.db: DatabaseConnector or None = None
+		self.db: DatabaseConnector = None
 
 	def __len__(self):
 		return len(self.chain)
@@ -131,29 +133,9 @@ class Blockchain:
 		return self.chain
 
 	def update_local_chain(self):
-		chain = []
-		db_blocks = self.db.get_all(BlockModel)
-		for db_block in db_blocks:
-			chain.append(Block(
-				index=db_block.index,
-				transactions=[
-					Transaction(
-						signature=tx.signature,
-						public_key=tx.public_key,
-						raw=RawTransaction(
-							amount=tx.amount,
-							fee=tx.fee,
-							sender=tx.sender,
-							recipient=tx.recipient,
-							timestamp=tx.timestamp,
-						)
-					) for tx in db_block.transactions
-				],
-				timestamp=db_block.timestamp,
-				previous_hash=db_block.previous_hash,
-				nonce=db_block.nonce,
-			))
-		self.chain = chain
+		chain = self.db.replace_local_chain(Transaction, RawTransaction, Block)
+		with threading.Lock():
+			self.chain = chain
 
 	def create_initial_block(self) -> Block:
 		block = Block(

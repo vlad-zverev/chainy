@@ -3,7 +3,7 @@ import hashlib
 import logging
 from copy import copy
 from decimal import Decimal
-
+import time
 import base58
 import ecdsa
 
@@ -71,6 +71,12 @@ class Wallet:
             for transaction in block.transactions:
                 if transaction.raw.recipient == self.address:
                     balance += Decimal(transaction.raw.amount)
+                    if transaction.raw.lock_script:
+                        locked = None
+                        exec(transaction.raw.lock_script, dict(), {'time': time.time})
+                        if locked:
+                            logging.info(f'script locked amount {transaction.raw.amount} ({transaction.raw.lock_script})')
+                            balance -= Decimal(transaction.raw.amount)
                 if transaction.raw.sender == self.address:
                     balance -= Decimal(transaction.raw.amount) - Decimal(transaction.raw.fee)
         return balance

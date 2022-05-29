@@ -9,7 +9,7 @@ from src.utils import response
 
 NODES = json.loads(os.getenv('NODES')) if os.getenv('NODES') else []
 
-app = AppBuilder(nodes=NODES, debug=True)
+app = AppBuilder(nodes=NODES, debug=False)
 
 
 @app.flask.route('/chain', methods=['GET'])
