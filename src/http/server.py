@@ -33,3 +33,20 @@ def send():
 def notify():
     app.miner.blockchain.db.save_user_request(request.get_json())
     return response({})
+
+
+@app.flask.route('/balance', methods=['GET'])
+def get_balance():
+    address = request.get_json().get('address')
+    if not address:
+        return response({
+            'error': '"address" must be provided'
+        }), 400
+    wallet = app.wallet(address=address)
+    balance, locked_balance, untrusted_balance, untrusted_locked_balance = wallet.get_balance(app.miner.blockchain)
+    return response({
+        'balance': balance,
+        'locked_balance': locked_balance,
+        'untrusted_balance': untrusted_balance,
+        'untrusted_locked_balance': untrusted_locked_balance,
+    })

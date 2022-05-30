@@ -1,5 +1,7 @@
+from decimal import Decimal
+
 from pytest import mark
-from time import sleep
+
 from matcher import *
 
 
@@ -9,11 +11,10 @@ def test_nodes_synchronized(wallets: Tuple[HttpJsonClient, ...], chain_len: int)
 	assert is_all_nodes_blocks_equals(wallets, chain_len)
 
 
-def test_transaction(wallet_main):
-	wallet_main.create_transaction(amount='2', fee='1', recipient='test')
+@mark.parametrize('transaction', [{'amount': '0.5', 'fee': '0.1', 'recipient': 'test', 'lock_script': 'locked = True'}])
+def test_transaction(wallet_main: HttpJsonClient, transaction: dict):
+	while not Decimal(wallet_main.get_balance()['balance']) > Decimal(transaction['amount']) + Decimal(transaction['fee']):
+		sleep(1)
+	wallet_main.create_transaction(**transaction)
 	sleep(10)
-	transactions = [block['transactions'] for block in wallet_main.get_chain()['blocks']]
-	assert [transaction for transaction in transactions
-			if transaction['recipient'] == 'test'
-			and transaction['amount'] == '2'
-			and transaction['fee'] == '1']
+	assert is_transaction_in_chain(wallet_main.get_chain(), **transaction)

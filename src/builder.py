@@ -7,11 +7,13 @@ from flask import Flask
 
 from src.chain import Blockchain
 from src.miner import Miner
+from src.wallet import Wallet
 
 
 class AppBuilder:
 	def __init__(self, nodes: List[str] = None, debug: bool = False):
 		self.flask = Flask(self.__module__)
+		self.wallet = Wallet
 		self._lock = threading.Lock()
 		self.miner = Miner(Blockchain(), debug=debug)
 		self.nodes = nodes

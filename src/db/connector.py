@@ -126,6 +126,7 @@ class DatabaseConnector:
 							'recipient': transaction['raw']['recipient'],
 							'amount': transaction['raw']['amount'],
 							'fee': transaction['raw']['fee'],
+							'lock_script': transaction['raw']['lock_script'],
 							'timestamp': transaction['raw']['timestamp'],
 							'hash': '0',
 							'block_index': block['index'],

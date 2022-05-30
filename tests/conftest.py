@@ -8,17 +8,17 @@ from src import HttpJsonClient
 
 @fixture(scope='session')
 def wallet_main() -> HttpJsonClient:
-	return HttpJsonClient(os.getenv('WALLET_MAIN_URL'))
+	return HttpJsonClient(os.getenv('WALLET_MAIN_URL'), os.getenv('ADDRESS'))
 
 
 @fixture(scope='session')
 def wallet_friendly() -> HttpJsonClient:
-	return HttpJsonClient(os.getenv('WALLET_FRIENDLY_URL'))
+	return HttpJsonClient(os.getenv('WALLET_FRIENDLY_URL'), os.getenv('ADDRESS'))
 
 
 @fixture(scope='session')
 def wallet_hacker() -> HttpJsonClient:
-	return HttpJsonClient(os.getenv('WALLET_HACKER_URL'))
+	return HttpJsonClient(os.getenv('WALLET_HACKER_URL'), os.getenv('ADDRESS'))
 
 
 @fixture(scope='session')

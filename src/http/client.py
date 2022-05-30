@@ -8,8 +8,9 @@ from src.wallet import Wallet
 
 
 class HttpJsonClient:
-	def __init__(self, url):
+	def __init__(self, url, address: str = None):
 		self.url = url
+		self.address = address
 
 	def request(self, method: Literal["get", "post"], endpoint: str, json: dict = None, params: dict = None) -> dict or list:
 		try:
@@ -31,7 +32,7 @@ class HttpJsonClient:
 		return self.get('chain')
 
 	def create_transaction(
-			self, amount: str, fee: str, recipient: str,
+			self, amount: str, fee: str, recipient: str, lock_script: str = None,
 			sender: str = None, private_key: str = None, public_key: str = None,
 	) -> dict:
 		wallet = Wallet(
@@ -39,7 +40,7 @@ class HttpJsonClient:
 			private_key=private_key if private_key else os.getenv('PRIVATE_KEY'),
 			public_key=public_key if public_key else os.getenv('PUBLIC_KEY')
 		)
-		transaction = wallet.create_transaction(amount=amount, fee=fee, recipient=recipient)
+		transaction = wallet.create_transaction(amount=amount, fee=fee, recipient=recipient, lock_script=lock_script)
 		return self.post('send', json={
 			'public_key': transaction.public_key,
 			'signature': transaction.signature,
@@ -47,5 +48,9 @@ class HttpJsonClient:
 			'fee': transaction.raw.fee,
 			'sender': transaction.raw.sender,
 			'recipient': transaction.raw.recipient,
-			'timestamp': transaction.raw.timestamp
+			'timestamp': transaction.raw.timestamp,
+			'lock_script': transaction.raw.lock_script,
 		})
+
+	def get_balance(self):
+		return self.get('balance', json={'address': self.address})

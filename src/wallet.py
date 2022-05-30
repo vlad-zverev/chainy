@@ -33,6 +33,8 @@ class Crypto:
 
 
 class Wallet:
+    trust_confirmations = 3
+
     def __init__(
             self,
             address: str = None,
@@ -59,39 +61,51 @@ class Wallet:
         self.public_key = crypto.public
 
     def is_balance_sufficient(self, blockchain: Blockchain, required_amount: Decimal = 0):
-        balance = self.get_balance(blockchain)
+        balance, _, _, _ = self.get_balance(blockchain)
         if balance >= Decimal(required_amount):
             return True
         else:
             logging.warning(f'Insufficient balance {balance}, required {required_amount}')
 
+    def get_transaction_balance(self, transaction: Transaction, balance: Decimal, locked_balance: Decimal):
+        if transaction.raw.recipient == self.address:
+            balance += Decimal(transaction.raw.amount)
+            if transaction.raw.lock_script:
+                local = {'time': time.time}
+                exec(transaction.raw.lock_script, dict(), local)
+                locked = local.get('locked')
+                if locked:
+                    logging.info(f'script locked amount {transaction.raw.amount} ({transaction.raw.lock_script})')
+                    locked_balance += Decimal(transaction.raw.amount)
+                    balance -= Decimal(transaction.raw.amount)
+        if transaction.raw.sender == self.address:
+            balance -= Decimal(transaction.raw.amount) - Decimal(transaction.raw.fee)
+        return balance, locked_balance
+
     def get_balance(self, blockchain: Blockchain):
-        balance = 0
-        for block in blockchain.chain:
+        balance = locked_balance = untrusted_balance = untrusted_locked_balance = Decimal(0)
+        for index, block in enumerate(reversed(blockchain.chain)):
             for transaction in block.transactions:
-                if transaction.raw.recipient == self.address:
-                    balance += Decimal(transaction.raw.amount)
-                    if transaction.raw.lock_script:
-                        locked = None
-                        exec(transaction.raw.lock_script, dict(), {'time': time.time})
-                        if locked:
-                            logging.info(f'script locked amount {transaction.raw.amount} ({transaction.raw.lock_script})')
-                            balance -= Decimal(transaction.raw.amount)
-                if transaction.raw.sender == self.address:
-                    balance -= Decimal(transaction.raw.amount) - Decimal(transaction.raw.fee)
-        return balance
+                if index >= self.trust_confirmations:
+                    balance, locked_balance = self.get_transaction_balance(transaction, balance, locked_balance)
+                else:
+                    untrusted_balance, untrusted_locked_balance = self.get_transaction_balance(
+                        transaction, untrusted_balance, untrusted_locked_balance
+                    )
+        return balance, locked_balance, untrusted_balance, untrusted_locked_balance
 
     def sign_transaction(self, message: str):
         bytes_message = message.encode()
         signing_key = ecdsa.SigningKey.from_string(bytes.fromhex(self.private_key), curve=ecdsa.SECP256k1)
         return base58.b58encode(signing_key.sign(bytes_message)).decode()
 
-    def create_transaction(self, amount: str, fee: str, recipient: str):
+    def create_transaction(self, amount: str, fee: str, recipient: str, lock_script: str):
         raw_transaction = RawTransaction(
             amount=amount,
             fee=fee,
             sender=self.address,
             recipient=recipient,
+            lock_script=lock_script,
         )
         return Transaction(
             self.sign_transaction(raw_transaction.hash),

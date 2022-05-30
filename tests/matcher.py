@@ -3,6 +3,7 @@ from time import time, sleep
 from typing import Tuple
 
 from src import HttpJsonClient, Blockchain
+import itertools
 
 
 def is_all_nodes_reached_required_len(wallets: Tuple[HttpJsonClient, ...], chain_len: int):
@@ -25,3 +26,18 @@ def is_all_nodes_reached_required_len(wallets: Tuple[HttpJsonClient, ...], chain
 def is_all_nodes_blocks_equals(wallets: Tuple[HttpJsonClient, ...], chain_len: int):
 	chains = [wallet.get_chain()['blocks'][:chain_len] for wallet in wallets]
 	return chains.count(chains[0]) == len(chains)
+
+
+def is_transaction_in_chain(chain: dict, amount: str, fee: str, recipient: str, lock_script: str):
+	transactions = list(
+		itertools.chain.from_iterable(
+			[block['transactions'] for block in chain['blocks']]
+		)
+	)
+	return [
+		transaction for transaction in transactions
+		if transaction['raw']['recipient'] == recipient
+		   and transaction['raw']['amount'] == amount
+		   and transaction['raw']['fee'] == fee
+		   and transaction['raw']['lock_script'] == lock_script
+	]

@@ -9,16 +9,6 @@ from src.db.connector import DatabaseConnector
 from src.utils import actual_time, serialize
 
 
-class AttrsAsHash:
-	@property
-	def hash(self) -> str:
-		return hashlib.sha256(
-			json.dumps(
-				self.__dict__, sort_keys=True, default=serialize
-			).encode()
-		).hexdigest()
-
-
 class RawTransaction:
 	def __init__(self, amount: str, fee: str, sender: str, recipient: str, timestamp: int = None, lock_script: str = None):
 		self.amount = amount
@@ -109,7 +99,7 @@ class Block:
 
 
 class Blockchain:
-	difficulty = 5
+	difficulty = 4
 	threshold_block_time = 10_000_000  # 10 sec
 	total_emission = Decimal(1_000_000)
 	block_reward = Decimal(1)
@@ -153,6 +143,7 @@ class Blockchain:
 			fee='0',
 			sender='0',
 			recipient='root',
+			lock_script='locked = False'
 		)
 		return Transaction(
 			signature='0',
@@ -166,6 +157,7 @@ class Blockchain:
 			fee='0',
 			sender='root',
 			recipient=recipient,
+			lock_script='locked = False'
 		)
 		return Transaction(
 			signature='0',

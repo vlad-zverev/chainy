@@ -33,7 +33,7 @@ class TransactionModel(Base):
 	signature = Column(String(64))
 	public_key = Column(String(64))
 	hash = Column(String(64), index=True)
-	lock_script = Column(Text, default=None)
+	lock_script = Column(String(), default=None)
 
 	block_index = Column(Integer)
 

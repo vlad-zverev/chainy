@@ -2,11 +2,10 @@ import json
 import logging
 import os
 import sys
+import time
 import traceback
-from copy import deepcopy
 from decimal import Decimal
 from typing import List, Tuple
-import time
 
 import base58
 import ecdsa
@@ -14,7 +13,6 @@ from ecdsa.keys import BadSignatureError, MalformedPointError
 
 from src.chain import Blockchain, Block, Transaction, RawTransaction
 from src.db.connector import DatabaseConnector
-from src.db.models import UserRequest, TransactionModel, BlockModel
 from src.http.client import HttpJsonClient
 from src.utils import actual_time
 from src.wallet import Wallet
@@ -57,15 +55,16 @@ class Validator:
 
     @staticmethod
     def validate_lock_script(code: str):
-        for string in 'import', 'subprocess':
-            if string in code:
-                return False, f'"{string}" is not allowed'
         if code:
-            locked = None
-            exec(code, dict(), {'time': time.time})
+            for string in 'import', 'subprocess':
+                if string in code:
+                    return False, f'"{string}" is not allowed'
+            local = {'time': time.time}
+            exec(code, dict(), local)
+            locked = local.get('locked')
             if locked is None or not isinstance(locked, bool):
-                return False, 'lock_script must have assignment "locked = ...", where locked contain "bool" variable'
-            return locked, 0
+                logging.info(f'locked: {locked}')
+                return False, 'lock_script must have assignment "locked = ...", where locked contain "bool" value'
         return True, 0
 
 
@@ -121,6 +120,7 @@ class Miner(Validator):
         lock_script_validated, message = self.validate_lock_script(transaction.raw.lock_script)
         if not lock_script_validated:
             return False, message
+        return True, 'Validated'
 
     def add_new_transactions(self) -> None:
         required = ('signature', 'public_key', 'sender', 'recipient', 'amount', 'fee')
@@ -138,12 +138,14 @@ class Miner(Validator):
                         sender=tx['sender'],
                         recipient=tx['recipient'],
                         timestamp=tx['timestamp'],
+                        lock_script=tx['lock_script'],
                     )
                 )
-                if self.validate(transaction):
+                validated, message = self.validate(transaction)
+                if validated:
                     self.blockchain.unconfirmed_transactions.append(transaction)
                 else:
-                    logging.info('Your transaction incorrect')
+                    logging.info(f'Your transaction incorrect, {message}')
             except (AttributeError, ValueError):
                 logging.error(traceback.format_exc())
             finally:
