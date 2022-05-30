@@ -1,1 +1,3 @@
-# Chainy
+# PyCoin
+
+Simple decentralized crypto blockchain

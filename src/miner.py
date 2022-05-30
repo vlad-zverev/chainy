@@ -107,8 +107,10 @@ class Miner(Validator):
 
     def add_block(self, block: Block) -> None:
         if self.blockchain.last_block.hash != block.previous_hash:
+            logging.error(f'{self.blockchain.last_block.hash} != {block.previous_hash}')
             raise
         if not self.is_valid_proof(block.hash):
+            logging.error(f'Proof invalid {block.hash}')
             raise
         self.blockchain + block
 
@@ -163,16 +165,13 @@ class Miner(Validator):
                     logging.info('Chain replaced by another longer and valid chain')
                     return True
 
-    def mine_cycle(self):
-        while True:
-            self.add_new_transactions()
-            self.mine()
-            self.sync_nodes()
 
     def main(self):
         logging.info('Start mining...')
-        try:
-            self.mine_cycle()
-        except BaseException as e:
-            logging.error(f'Mining error: {e}, {traceback.format_exc()}')
-            self.main()
+        while True:
+            try:
+                self.add_new_transactions()
+                self.mine()
+                self.sync_nodes()
+            except BaseException as e:
+                logging.error(f'Mining error: {e}, {traceback.format_exc()}')
