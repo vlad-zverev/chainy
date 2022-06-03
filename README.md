@@ -1,6 +1,6 @@
 # PyCoin
 
-Simple decentralized crypto blockchain
+Simple naive decentralized crypto blockchain
 
 TODO:
 - completely switch to sqlalchemy models Block and Transaction containing Blockhain
