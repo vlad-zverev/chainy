@@ -1,0 +1,53 @@
+version: "2.4"
+
+
+services:
+  miner_main:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=80
+      - NODES=["http://miner_friendly:81", "http://miner_hacker:82"]
+      - ADDRESS=1JfzBXo3kzYa19tmd8gJbZVcNmnaxLur8S
+    ports:
+      - "80:80"
+
+  miner_friendly:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=81
+      - NODES=["http://miner_main:80", "http://miner_hacker:82"]
+    ports:
+      - "81:81"
+
+  miner_hacker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - PORT=82
+      - NODES=["http://miner_main:80", "http://miner_friendly:81"]
+    ports:
+      - "82:82"
+
+  tests:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - ADDRESS=1JfzBXo3kzYa19tmd8gJbZVcNmnaxLur8S
+      - PRIVATE_KEY=49ed3e2a406bc4cc35c69b55d798e40bd1e6824b683189c1203cfb6b7785f839
+      - PUBLIC_KEY=04b0512827ab54a15e5a852a4e1e84fbe4d395a84cbfc08b8bf0ac9849a7a549a253e77b96e874fddafc57cb2ba0b4e369884f7e0770712af42261e9be325b5e8e
+      - WALLET_MAIN_URL=http://miner_main:80
+      - WALLET_FRIENDLY_URL=http://miner_friendly:81
+      - WALLET_HACKER_URL=http://miner_hacker:82
+    volumes:
+      - ..:/app
+    depends_on:
+      - miner_main
+      - miner_friendly
+      - miner_hacker
+    entrypoint: python3 -m pytest --color=yes
